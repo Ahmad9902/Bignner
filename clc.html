@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Professional Calculator</title>
+  <style>
+    :root{
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --text: #0f1724;
+      --muted: #6b7280;
+      --accent: #0ea5a5;
+      --btn: #eef2f6;
+      --btn-text: var(--text);
+      --glass: rgba(255,255,255,0.6);
+      --shadow: 0 6px 18px rgba(12,24,56,0.08);
+    }
+
+    /* Dark theme */
+    :root[data-theme='dark']{
+      --bg: #0b1020;
+      --panel: #0f1724;
+      --text: #e6eef6;
+      --muted: #9aa6b2;
+      --accent: #22c1c3;
+      --btn: #0f1728;
+      --btn-text: #e6eef6;
+      --glass: rgba(255,255,255,0.03);
+      --shadow: 0 10px 30px rgba(2,6,23,0.7);
+    }
+
+    /* Night (AMOLED-friendly) */
+    :root[data-theme='night']{
+      --bg: #000000;
+      --panel: #050505;
+      --text: #e8f3f3;
+      --muted: #7d8a8a;
+      --accent: #00ffd2;
+      --btn: #0b0b0b;
+      --btn-text: #e8f3f3;
+      --glass: rgba(255,255,255,0.02);
+      --shadow: 0 14px 40px rgba(0,0,0,0.9);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(14,165,175,0.04), transparent), var(--bg);
+      color:var(--text);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .calculator{
+      width:380px;
+      max-width:94vw;
+      border-radius:20px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)) , var(--panel);
+      box-shadow:var(--shadow);
+      padding:18px;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      gap:12px;
+      border:1px solid rgba(255,255,255,0.04);
+      backdrop-filter: blur(6px) saturate(1.05);
+    }
+
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+    }
+
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{
+      width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#6ee7b7);display:grid;place-items:center;color:var(--panel);font-weight:700;box-shadow:0 6px 18px rgba(14,165,175,0.12)
+    }
+    .title{font-weight:600}
+    .subtitle{font-size:12px;color:var(--muted)}
+
+    .controls{display:flex;gap:10px;align-items:center}
+    .theme-switch{display:flex;gap:6px;align-items:center;background:var(--glass);padding:6px;border-radius:999px}
+    .theme-switch button{border:0;background:transparent;padding:6px 8px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:600}
+    .theme-switch button[aria-pressed='true']{background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));color:var(--text)}
+
+    .display{
+      border-radius:12px;padding:16px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+      display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:6px;min-height:96px
+    }
+    .history{font-size:13px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .value{font-size:28px;font-weight:700;letter-spacing:0.6px}
+    .value.small{font-size:20px}
+
+    .pad{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .btn{padding:14px;border-radius:12px;border:0;background:var(--btn);cursor:pointer;font-weight:600;box-shadow:0 4px 10px rgba(2,6,23,0.04);min-height:52px}
+    .btn:active{transform:translateY(1px)}
+    .btn.secondary{background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--text);font-weight:700}
+    .btn.op{background:linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.01));color:var(--text)}
+    .btn.equal{grid-column:span 2;background:linear-gradient(90deg,var(--accent), #55d6d6);color:#042027}
+
+    .small{font-size:13px;padding:10px}
+
+    /* accessibility focus */
+    .btn:focus{outline:3px solid rgba(34,197,94,0.12);outline-offset:2px}
+
+    .footer{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+
+    @media (max-width:420px){
+      .calculator{padding:12px;border-radius:16px}
+      .logo{width:40px;height:40px}
+      .value{font-size:22px}
+      .btn{min-height:48px;padding:12px}
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator" role="application" aria-label="Calculator">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">C</div>
+        <div>
+          <div class="title">Calculator Pro</div>
+          <div class="subtitle">Clean • Fast • Accessible</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="theme-switch" role="tablist" aria-label="Theme selector">
+          <button id="lightBtn" role="tab" aria-pressed="true" title="Light">☀️</button>
+          <button id="darkBtn" role="tab" aria-pressed="false" title="Dark">🌙</button>
+          <button id="nightBtn" role="tab" aria-pressed="false" title="Night">🖤</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="display" id="display">
+        <div class="history" id="history" aria-live="polite">&nbsp;</div>
+        <div class="value" id="output">0</div>
+      </div>
+
+      <div class="pad" id="pad" role="group" aria-label="Calculator buttons">
+        <button class="btn secondary small" data-action="clear" title="Clear (Esc)">AC</button>
+        <button class="btn secondary small" data-action="back" title="Backspace (Backspace)">⌫</button>
+        <button class="btn secondary small" data-action="percent" title="Percent">%</button>
+        <button class="btn op" data-value="/" title="Divide">÷</button>
+
+        <button class="btn" data-value="7">7</button>
+        <button class="btn" data-value="8">8</button>
+        <button class="btn" data-value="9">9</button>
+        <button class="btn op" data-value="*" title="Multiply">×</button>
+
+        <button class="btn" data-value="4">4</button>
+        <button class="btn" data-value="5">5</button>
+        <button class="btn" data-value="6">6</button>
+        <button class="btn op" data-value="-" title="Subtract">−</button>
+
+        <button class="btn" data-value="1">1</button>
+        <button class="btn" data-value="2">2</button>
+        <button class="btn" data-value="3">3</button>
+        <button class="btn op" data-value="+" title="Add">+</button>
+
+        <button class="btn" data-value="0" style="grid-column:span 2;">0</button>
+        <button class="btn" data-value="." title="Decimal">.</button>
+        <button class="btn equal" data-action="equals" title="Equals">=</button>
+      </div>
+
+      <div class="footer">Keyboard: numbers, + - * /, Enter =, Backspace, Esc</div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const root = document.documentElement;
+      const storageKey = 'calc.theme.v1';
+      const defaultTheme = localStorage.getItem(storageKey) || 'dark';
+      root.setAttribute('data-theme', defaultTheme);
+
+      // theme buttons
+      const themes = ['light','dark','night'];
+      const btns = {light:document.getElementById('lightBtn'), dark:document.getElementById('darkBtn'), night:document.getElementById('nightBtn')};
+      function setTheme(t){
+        themes.forEach(x=>btns[x].setAttribute('aria-pressed','false'));
+        btns[t].setAttribute('aria-pressed','true');
+        root.setAttribute('data-theme', t);
+        localStorage.setItem(storageKey, t);
+      }
+      Object.entries(btns).forEach(([k,el])=>el.addEventListener('click', ()=>setTheme(k)));
+
+      // calculator logic
+      const outputEl = document.getElementById('output');
+      const historyEl = document.getElementById('history');
+      const pad = document.getElementById('pad');
+
+      let buffer = '';
+      let lastResult = null;
+
+      function render(){
+        outputEl.textContent = buffer === '' ? '0' : buffer;
+        outputEl.classList.toggle('small', outputEl.textContent.length>12);
+      }
+
+      function safeEvaluate(expr){
+        // only allow digits, operators, parentheses, decimal and whitespace
+        if(!/^[0-9+\-*/(). %]+$/.test(expr)) throw new Error('Invalid characters');
+        // replace unicode division/multiply if present
+        expr = expr.replace(/÷/g, '/').replace(/×/g, '*').replace(/−/g, '-');
+        // handle percent: replace `number%` -> `(number/100)` using a regex
+        expr = expr.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+        // collapse repeated operators (avoid things like ++ or -- causing surprises) - allow unary - by keeping leading -
+        expr = expr.replace(/([^\d)])\+/g, '$1+');
+        // evaluate with Function in isolated scope
+        // still potentially unsafe for a public web app; for this demo we keep strict input filtering above.
+        // Use Function to evaluate arithmetic only
+        // Protect from extremely long expressions
+        if(expr.length>200) throw new Error('Expression too long');
+        return Function('return ('+expr+')')();
+      }
+
+      pad.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button');
+        if(!btn) return;
+        const val = btn.getAttribute('data-value');
+        const action = btn.getAttribute('data-action');
+        if(action) handleAction(action);
+        else if(val) handleInput(val);
+      });
+
+      function handleInput(val){
+        // avoid two decimals in same number
+        if(val === '.'){
+          const parts = buffer.split(/[^0-9.]/);
+          if(parts[parts.length-1].includes('.')) return;
+          if(buffer === '' || /[+\-*/(]$/.test(buffer)) buffer += '0';
+        }
+        buffer += val;
+        render();
+      }
+
+      function handleAction(action){
+        if(action === 'clear'){ buffer=''; lastResult=null; historyEl.textContent=''; render(); }
+        else if(action === 'back'){ buffer = buffer.slice(0,-1); render(); }
+        else if(action === 'percent'){ buffer += '%'; render(); }
+        else if(action === 'equals'){
+          try{
+            const res = safeEvaluate(buffer || '0');
+            historyEl.textContent = buffer + ' =';
+            buffer = String(Number.isFinite(res) ? +(Math.round(res*1e12)/1e12) : res);
+            lastResult = buffer;
+            render();
+          }catch(err){
+            historyEl.textContent = 'Error';
+            buffer='';
+            setTimeout(()=>{ historyEl.textContent=''; render(); },1200);
+          }
+        }
+      }
+
+      // keyboard support
+      window.addEventListener('keydown', (e)=>{
+        if(e.key >= '0' && e.key <= '9') return handleInput(e.key);
+        if(['+','-','/','*','(',')','.'].includes(e.key)) return handleInput(e.key);
+        if(e.key === 'Enter') { e.preventDefault(); return handleAction('equals'); }
+        if(e.key === 'Backspace') return handleAction('back');
+        if(e.key === 'Escape') return handleAction('clear');
+        if(e.key === '%') return handleAction('percent');
+      });
+
+      // init
+      render();
+      setTheme(defaultTheme);
+
+      // expose for debugging (optional)
+      window._calc = { setTheme, safeEvaluate };
+    })();
+  </script>
+</body>
+</html>
