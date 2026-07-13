@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cutting Mat — PDF Merger &amp; Splitter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --mat:#2c473b;
+    --mat-dark:#213a30;
+    --mat-darker:#1a2f27;
+    --grid-line:rgba(255,255,255,0.05);
+    --paper:#f7f4ec;
+    --paper-edge:#e5e0d2;
+    --ink:#242821;
+    --blade:#e2934a;
+    --blade-dim:#a56a34;
+    --muted:#aebeb2;
+    --danger:#c0574a;
+    --line:rgba(255,255,255,0.14);
+    --radius:5px;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    font-family:'Inter', sans-serif;
+    background:var(--mat-darker);
+    color:var(--muted);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--blade); color:#2a1a08; }
+
+  /* ===== HEADER ===== */
+  header.top{
+    background:var(--mat-dark);
+    border-bottom:1px solid var(--line);
+    padding:20px 26px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{ display:flex; align-items:center; gap:11px; }
+  .brand .blade-mark{
+    width:22px; height:3px;
+    background:var(--blade);
+    border-radius:2px;
+    transform:rotate(-35deg);
+  }
+  .brand .name{
+    font-family:'Libre Franklin', sans-serif;
+    font-weight:700;
+    font-size:19px;
+    color:#f2f0e8;
+    letter-spacing:-0.01em;
+  }
+  .privacy-note{
+    font-size:11.5px;
+    color:var(--muted);
+    font-family:'Space Mono', monospace;
+  }
+  .header-actions{ display:flex; gap:10px; align-items:center; }
+  .header-actions button{
+    padding:8px 15px;
+    border-radius:var(--radius);
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+  }
+  .header-actions button:hover{ border-color:var(--blade); color:var(--blade); }
+
+  /* ===== UPLOAD ZONE ===== */
+  #uploadZone{
+    max-width:640px;
+    margin:70px auto;
+    padding:0 24px;
+    text-align:center;
+  }
+  .dropzone{
+    border:2px dashed rgba(255,255,255,0.25);
+    border-radius:10px;
+    padding:56px 30px;
+    position:relative;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .dropzone.dragover{
+    border-color:var(--blade);
+    background:rgba(226,147,74,0.06);
+  }
+  .dropzone input[type="file"]{
+    position:absolute; inset:0; opacity:0; cursor:pointer;
+  }
+  .dropzone .scissors-icon{
+    width:44px; height:44px;
+    margin:0 auto 18px;
+    color:var(--blade);
+  }
+  .dropzone h1{
+    font-family:'Libre Franklin', sans-serif;
+    font-weight:700;
+    font-size:21px;
+    color:#f2f0e8;
+    margin-bottom:8px;
+  }
+  .dropzone p{
+    font-size:13.5px;
+    color:var(--muted);
+    max-width:360px;
+    margin:0 auto;
+    line-height:1.6;
+  }
+
+  /* ===== MAT WORKSPACE ===== */
+  #matWorkspace{ display:none; }
+  #matWorkspace.active{ display:block; }
+
+  .mat-toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:16px 26px;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .mat-toolbar .count-readout{
+    font-family:'Space Mono', monospace;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .add-more-wrap{ position:relative; }
+  .add-more-wrap button{
+    padding:8px 16px;
+    border-radius:var(--radius);
+    font-size:12.5px;
+    font-weight:600;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--muted);
+    cursor:pointer;
+  }
+  .add-more-wrap button:hover{ border-color:var(--blade); color:var(--blade); }
+  .add-more-wrap input[type="file"]{
+    position:absolute; inset:0; opacity:0; cursor:pointer;
+  }
+
+  .mat-surface{
+    background:var(--mat);
+    background-image:
+      repeating-linear-gradient(0deg, var(--grid-line) 0, var(--grid-line) 1px, transparent 1px, transparent 32px),
+      repeating-linear-gradient(90deg, var(--grid-line) 0, var(--grid-line) 1px, transparent 1px, transparent 32px);
+    padding:30px 26px 40px;
+    min-height:340px;
+  }
+
+  .page-sequence{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-start;
+    gap:0;
+    max-width:1100px;
+    margin:0 auto;
+  }
+
+  /* page card */
+  .page-card{
+    width:118px;
+    background:var(--paper);
+    border-radius:3px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.35), 0 0 0 1px var(--paper-edge);
+    padding:8px 8px 10px;
+    cursor:grab;
+    position:relative;
+    transition:transform .15s ease, opacity .15s ease;
+  }
+  .page-card.dragging{ opacity:0.35; }
+  .page-card canvas{
+    width:100%;
+    display:block;
+    border-radius:2px;
+    background:#fff;
+  }
+  .page-card .card-foot{
+    margin-top:7px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .page-card .src-badge{
+    font-family:'Space Mono', monospace;
+    font-size:9px;
+    padding:2px 5px;
+    border-radius:3px;
+    color:#fff;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:62px;
+  }
+  .page-card .pg-num{
+    font-family:'Space Mono', monospace;
+    font-size:10px;
+    color:var(--ink);
+    opacity:0.6;
+  }
+  .page-card .card-controls{
+    position:absolute;
+    top:4px; right:4px;
+    display:flex;
+    gap:2px;
+    opacity:0;
+    transition:opacity .15s ease;
+  }
+  .page-card:hover .card-controls{ opacity:1; }
+  .page-card .card-controls button{
+    width:20px; height:20px;
+    border-radius:3px;
+    border:none;
+    background:rgba(36,40,33,0.75);
+    color:#fff;
+    font-size:11px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    line-height:1;
+  }
+  .page-card .card-controls button:hover{ background:var(--danger); }
+  .page-card .card-controls button.move-btn:hover{ background:var(--blade-dim); }
+
+  /* seam / scissors */
+  .seam{
+    width:20px;
+    align-self:stretch;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    position:relative;
+    min-height:150px;
+  }
+  .seam .seam-line{
+    width:0;
+    border-left:2px dashed rgba(255,255,255,0.22);
+    height:70%;
+    transition:border-color .15s ease;
+  }
+  .seam .scissors-badge{
+    position:absolute;
+    width:22px; height:22px;
+    border-radius:50%;
+    background:var(--mat-dark);
+    border:1.5px solid rgba(255,255,255,0.25);
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:all .15s ease;
+  }
+  .seam .scissors-badge svg{ width:12px; height:12px; }
+  .seam:hover .scissors-badge{ border-color:var(--blade); color:var(--blade); }
+  .seam.active .seam-line{ border-color:var(--blade); border-left-width:2.5px; }
+  .seam.active .scissors-badge{
+    background:var(--blade);
+    border-color:var(--blade);
+    color:#2a1a08;
+  }
+
+  .empty-mat-msg{
+    text-align:center;
+    color:rgba(255,255,255,0.5);
+    font-size:13px;
+    padding:60px 20px;
+  }
+
+  /* ===== ACTION BAR ===== */
+  .action-bar{
+    position:sticky;
+    bottom:0;
+    background:var(--mat-dark);
+    border-top:1px solid var(--line);
+    padding:16px 26px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  .action-bar .info-readout{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .action-buttons{ display:flex; gap:10px; }
+  .action-buttons button{
+    padding:12px 20px;
+    border-radius:var(--radius);
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    border:none;
+  }
+  #mergeBtn{ background:var(--blade); color:#2a1a08; }
+  #mergeBtn:hover{ filter:brightness(1.08); }
+  #splitBtn{ background:transparent; border:1px solid var(--blade); color:var(--blade); }
+  #splitBtn:hover{ background:rgba(226,147,74,0.1); }
+  .action-buttons button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .toast{
+    position:fixed;
+    bottom:90px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--mat-dark);
+    border:1px solid var(--line);
+    color:#f2f0e8;
+    padding:12px 20px;
+    border-radius:8px;
+    font-size:13px;
+    opacity:0;
+    transition:all .25s ease;
+    pointer-events:none;
+    z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.err{ border-color:var(--danger); color:#ffd4c9; }
+
+  @media (max-width: 640px){
+    .page-card{ width:90px; }
+    .seam{ width:14px; min-height:110px; }
+    header.top{ padding:16px 18px; }
+    .mat-surface{ padding:20px 12px 30px; }
+  }
+
+  :focus-visible{ outline:2px solid var(--blade); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="blade-mark"></div>
+    <div class="name">Cutting Mat</div>
+  </div>
+  <div class="privacy-note">Files stay in your browser — nothing is uploaded.</div>
+  <div class="header-actions" id="headerActionsSlot" style="display:none;">
+    <button type="button" id="clearMatBtn">Clear mat</button>
+  </div>
+</header>
+
+<div id="uploadZone">
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="fileInput" accept="application/pdf" multiple>
+    <svg class="scissors-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="6" r="3"></circle>
+      <circle cx="6" cy="18" r="3"></circle>
+      <path d="M8.5 8.5L20 19M8.5 15.5L20 5M6 6h.01M14 12l-3.5 -3.5"></path>
+    </svg>
+    <h1>Lay your pages on the mat</h1>
+    <p>Drop one or more PDFs here, or click to choose files. Reorder pages, mark where to cut, then merge or split.</p>
+  </div>
+</div>
+
+<div id="matWorkspace">
+  <div class="mat-toolbar">
+    <div class="count-readout" id="countReadout">0 pages from 0 files</div>
+    <div class="add-more-wrap">
+      <button type="button">+ Add more PDFs</button>
+      <input type="file" id="addMoreInput" accept="application/pdf" multiple>
+    </div>
+  </div>
+
+  <div class="mat-surface">
+    <div class="page-sequence" id="pageSequence"></div>
+  </div>
+
+  <div class="action-bar">
+    <div class="info-readout" id="markerReadout">No cuts marked</div>
+    <div class="action-buttons">
+      <button type="button" id="mergeBtn">Download merged PDF</button>
+      <button type="button" id="splitBtn">Download split PDFs (.zip)</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  const { PDFDocument } = PDFLib;
+  const el = id => document.getElementById(id);
+
+  const BADGE_COLORS = ['#4f7a68','#a56a34','#5b7fa6','#8a5b9e','#a6555b','#6b8a3f'];
+
+  let sourceFiles = [];   // { id, name, pdfLibDoc, colorIdx }
+  let pages = [];         // { key, sourceId, pageIndex }
+  let splitMarkers = new Set(); // indices in `pages` after which a cut occurs
+  let dragFromIndex = null;
+
+  function showToast(msg, isErr){
+    const t = el('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  /* ============ FILE INGEST ============ */
+  async function handleFiles(fileList){
+    const files = Array.from(fileList).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+    if(files.length === 0){
+      showToast('Choose PDF files only.', true);
+      return;
+    }
+
+    for(const file of files){
+      try{
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfLibDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+        const pdfJsDoc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+
+        const sourceId = 's-' + Math.random().toString(36).slice(2, 9);
+        const colorIdx = sourceFiles.length % BADGE_COLORS.length;
+        sourceFiles.push({ id: sourceId, name: file.name, pdfLibDoc, colorIdx });
+
+        const pageCount = pdfJsDoc.numPages;
+        for(let i = 1; i <= pageCount; i++){
+          pages.push({ key: sourceId + '-' + i, sourceId, pageIndex: i - 1 });
+        }
+
+        // render thumbnails progressively
+        renderAllThumbsFor(sourceId, pdfJsDoc, pageCount);
+      } catch(err){
+        showToast(`Couldn't read "${file.name}" — it may be corrupted or password protected.`, true);
+      }
+    }
+
+    el('uploadZone').style.display = 'none';
+    el('matWorkspace').classList.add('active');
+    el('headerActionsSlot').style.display = 'flex';
+    renderSequence();
+  }
+
+  async function renderAllThumbsFor(sourceId, pdfJsDoc, pageCount){
+    for(let i = 1; i <= pageCount; i++){
+      try{
+        const page = await pdfJsDoc.getPage(i);
+        const viewport = page.getViewport({ scale: 0.35 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+        const target = document.querySelector(`[data-key="${sourceId}-${i}"] .thumb-slot`);
+        if(target){
+          target.innerHTML = '';
+          target.appendChild(canvas);
+        }
+      } catch(e){ /* thumbnail failure is non-critical */ }
+    }
+  }
+
+  /* ============ RENDER SEQUENCE ============ */
+  function renderSequence(){
+    const container = el('pageSequence');
+    container.innerHTML = '';
+
+    if(pages.length === 0){
+      container.innerHTML = `<div class="empty-mat-msg">The mat is empty — add more PDFs to continue.</div>`;
+    } else {
+      pages.forEach((pg, idx) => {
+        const src = sourceFiles.find(s => s.id === pg.sourceId);
+        const card = document.createElement('div');
+        card.className = 'page-card';
+        card.draggable = true;
+        card.dataset.key = pg.key;
+        card.dataset.idx = idx;
+        card.innerHTML = `
+          <div class="thumb-slot" style="min-height:60px;display:flex;align-items:center;justify-content:center;">
+            <div style="font-family:'Space Mono',monospace;font-size:9px;color:#999;">loading…</div>
+          </div>
+          <div class="card-foot">
+            <span class="src-badge" style="background:${BADGE_COLORS[src.colorIdx]}" title="${escapeHtml(src.name)}">${escapeHtml(src.name.replace(/\.pdf$/i,''))}</span>
+            <span class="pg-num">p.${pg.pageIndex + 1}</span>
+          </div>
+          <div class="card-controls">
+            <button type="button" class="move-btn" data-dir="-1" title="Move left">‹</button>
+            <button type="button" class="move-btn" data-dir="1" title="Move right">›</button>
+            <button type="button" class="remove-btn" title="Remove page">×</button>
+          </div>
+        `;
+        container.appendChild(card);
+
+        if(idx < pages.length - 1){
+          const seam = document.createElement('div');
+          seam.className = 'seam' + (splitMarkers.has(idx) ? ' active' : '');
+          seam.dataset.markerIdx = idx;
+          seam.innerHTML = `
+            <div class="seam-line"></div>
+            <div class="scissors-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle>
+                <path d="M8.5 8.5L20 19M8.5 15.5L20 5"></path>
+              </svg>
+            </div>
+          `;
+          container.appendChild(seam);
+        }
+      });
+    }
+
+    attachCardEvents();
+    attachSeamEvents();
+    updateReadouts();
+
+    // re-render thumbnails for any card missing a canvas (cheap re-render after reorder)
+    pages.forEach(pg => {
+      const target = document.querySelector(`[data-key="${pg.key}"] .thumb-slot canvas`);
+      if(!target){
+        const src = sourceFiles.find(s => s.id === pg.sourceId);
+        // thumbnails already rendering async on ingest; skip re-fetch to avoid duplicate work
+      }
+    });
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+
+  function updateReadouts(){
+    el('countReadout').textContent = `${pages.length} page${pages.length === 1 ? '' : 's'} from ${sourceFiles.length} file${sourceFiles.length === 1 ? '' : 's'}`;
+    const n = splitMarkers.size;
+    el('markerReadout').textContent = n === 0 ? 'No cuts marked — split will export one file' : `${n} cut${n === 1 ? '' : 's'} marked — will export ${n + 1} files`;
+    el('mergeBtn').disabled = pages.length === 0;
+    el('splitBtn').disabled = pages.length === 0;
+  }
+
+  /* ============ CARD INTERACTIONS ============ */
+  function attachCardEvents(){
+    document.querySelectorAll('.page-card').forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        dragFromIndex = parseInt(card.dataset.idx, 10);
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      card.addEventListener('dragover', (e) => e.preventDefault());
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dropIdx = parseInt(card.dataset.idx, 10);
+        if(dragFromIndex === null || dragFromIndex === dropIdx) return;
+        movePageTo(dragFromIndex, dropIdx);
+        dragFromIndex = null;
+      });
+
+      card.querySelectorAll('.move-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(card.dataset.idx, 10);
+          const dir = parseInt(btn.dataset.dir, 10);
+          const target = idx + dir;
+          if(target < 0 || target >= pages.length) return;
+          movePageTo(idx, target);
+        });
+      });
+
+      card.querySelector('.remove-btn').addEventListener('click', () => {
+        const idx = parseInt(card.dataset.idx, 10);
+        pages.splice(idx, 1);
+        rekeySplitMarkersAfterRemoval(idx);
+        renderSequence();
+      });
+    });
+  }
+
+  function movePageTo(fromIdx, toIdx){
+    const [item] = pages.splice(fromIdx, 1);
+    pages.splice(toIdx, 0, item);
+    splitMarkers = new Set(); // reordering invalidates prior cut positions to avoid confusion
+    renderSequence();
+  }
+
+  function rekeySplitMarkersAfterRemoval(removedIdx){
+    const newMarkers = new Set();
+    splitMarkers.forEach(m => {
+      if(m < removedIdx) newMarkers.add(m);
+      else if(m > removedIdx) newMarkers.add(m - 1);
+      // marker === removedIdx is dropped (the seam it belonged to no longer exists in the same spot)
+    });
+    splitMarkers = newMarkers;
+  }
+
+  function attachSeamEvents(){
+    document.querySelectorAll('.seam').forEach(seam => {
+      seam.addEventListener('click', () => {
+        const idx = parseInt(seam.dataset.markerIdx, 10);
+        if(splitMarkers.has(idx)) splitMarkers.delete(idx);
+        else splitMarkers.add(idx);
+        renderSequence();
+      });
+    });
+  }
+
+  /* ============ UPLOAD HANDLERS ============ */
+  const dropzone = el('dropzone');
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  el('fileInput').addEventListener('change', (e) => handleFiles(e.target.files));
+  el('addMoreInput').addEventListener('change', (e) => handleFiles(e.target.files));
+
+  el('clearMatBtn').addEventListener('click', () => {
+    if(pages.length > 0 && !confirm('Clear everything off the mat? This cannot be undone.')) return;
+    sourceFiles = [];
+    pages = [];
+    splitMarkers = new Set();
+    el('uploadZone').style.display = 'block';
+    el('matWorkspace').classList.remove('active');
+    el('headerActionsSlot').style.display = 'none';
+    el('fileInput').value = '';
+    el('addMoreInput').value = '';
+  });
+
+  /* ============ EXPORT: MERGE ============ */
+  el('mergeBtn').addEventListener('click', async () => {
+    if(pages.length === 0) return;
+    el('mergeBtn').disabled = true;
+    const original = el('mergeBtn').textContent;
+    el('mergeBtn').textContent = 'Merging…';
+    try{
+      const outDoc = await PDFDocument.create();
+      for(const pg of pages){
+        const src = sourceFiles.find(s => s.id === pg.sourceId);
+        const [copied] = await outDoc.copyPages(src.pdfLibDoc, [pg.pageIndex]);
+        outDoc.addPage(copied);
+      }
+      const bytes = await outDoc.save();
+      downloadBlob(new Blob([bytes], { type: 'application/pdf' }), 'merged.pdf');
+      showToast('Merged PDF downloaded.');
+    } catch(err){
+      showToast('Something went wrong while merging. Try again.', true);
+    } finally {
+      el('mergeBtn').disabled = false;
+      el('mergeBtn').textContent = original;
+    }
+  });
+
+  /* ============ EXPORT: SPLIT ============ */
+  el('splitBtn').addEventListener('click', async () => {
+    if(pages.length === 0) return;
+    el('splitBtn').disabled = true;
+    const original = el('splitBtn').textContent;
+    el('splitBtn').textContent = 'Splitting…';
+    try{
+      const sortedMarkers = Array.from(splitMarkers).sort((a,b) => a-b);
+      const segments = [];
+      let start = 0;
+      sortedMarkers.forEach(m => {
+        segments.push(pages.slice(start, m + 1));
+        start = m + 1;
+      });
+      segments.push(pages.slice(start));
+
+      if(segments.length === 1){
+        const outDoc = await PDFDocument.create();
+        for(const pg of segments[0]){
+          const src = sourceFiles.find(s => s.id === pg.sourceId);
+          const [copied] = await outDoc.copyPages(src.pdfLibDoc, [pg.pageIndex]);
+          outDoc.addPage(copied);
+        }
+        const bytes = await outDoc.save();
+        downloadBlob(new Blob([bytes], { type: 'application/pdf' }), 'split-1.pdf');
+        showToast('Split PDF downloaded.');
+      } else {
+        const zip = new JSZip();
+        for(let s = 0; s < segments.length; s++){
+          const outDoc = await PDFDocument.create();
+          for(const pg of segments[s]){
+            const src = sourceFiles.find(x => x.id === pg.sourceId);
+            const [copied] = await outDoc.copyPages(src.pdfLibDoc, [pg.pageIndex]);
+            outDoc.addPage(copied);
+          }
+          const bytes = await outDoc.save();
+          zip.file(`split-${s + 1}.pdf`, bytes);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        downloadBlob(zipBlob, 'split-pdfs.zip');
+        showToast(`${segments.length} files downloaded as a zip.`);
+      }
+    } catch(err){
+      showToast('Something went wrong while splitting. Try again.', true);
+    } finally {
+      el('splitBtn').disabled = false;
+      el('splitBtn').textContent = original;
+    }
+  });
+
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>

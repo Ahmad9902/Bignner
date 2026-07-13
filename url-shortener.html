@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terse — URL Shortener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#F4F5F8;
+    --bg-alt:#ECEEF3;
+    --surface:#FFFFFF;
+    --surface-alt:#FAFBFC;
+    --border:#E2E5EB;
+    --border-strong:#CBD1DB;
+    --text-primary:#171B24;
+    --text-secondary:#5C6470;
+    --text-tertiary:#9AA1AD;
+    --accent:#3538CD;
+    --accent-strong:#2B2EA3;
+    --accent-soft:#EAEAFB;
+    --accent-text-on:#FFFFFF;
+    --success:#127858;
+    --success-soft:#E2F5EC;
+    --danger:#B3392B;
+    --danger-soft:#FBEAE7;
+    --warning:#A85D14;
+    --warning-soft:#FBF0DF;
+    --font-display:'Outfit',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+    --radius:12px;
+    --radius-sm:8px;
+    --shadow-sm:0 1px 2px rgba(23,27,36,0.04);
+    --shadow-md:0 8px 24px -8px rgba(23,27,36,0.12);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg);
+    color:var(--text-primary);
+    font-family:var(--font-body);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 8% 0%, rgba(53,56,205,0.05), transparent 40%),
+      radial-gradient(circle at 100% 30%, rgba(18,120,88,0.04), transparent 35%);
+    background-attachment:fixed;
+  }
+  ::selection{ background:var(--accent-soft); color:var(--accent-strong); }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--border-strong); border-radius:10px; border:2px solid var(--bg); }
+  button{ font-family:inherit; cursor:pointer; }
+  a{ color:inherit; }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .wrap{ max-width:920px; margin:0 auto; padding:44px 24px 80px 24px; }
+
+  /* ===== Header ===== */
+  .site-header{ display:flex; align-items:center; gap:10px; margin-bottom:38px; }
+  .logo-mark{
+    width:32px; height:32px; border-radius:9px;
+    background:linear-gradient(150deg, var(--accent), var(--accent-strong));
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px -4px rgba(53,56,205,0.5);
+  }
+  .logo-mark svg{ width:16px; height:16px; }
+  .logo-text{ font-family:var(--font-display); font-weight:700; font-size:18px; letter-spacing:-0.01em; }
+  .logo-sub{
+    font-family:var(--font-mono); font-size:10.5px; color:var(--text-tertiary);
+    text-transform:uppercase; letter-spacing:0.08em; margin-top:1px;
+  }
+  .site-header .spacer{ flex:1; }
+  .header-stat{
+    font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);
+    display:flex; align-items:center; gap:6px;
+  }
+  .header-stat strong{ color:var(--text-primary); font-weight:500; }
+
+  /* ===== Hero / shorten card ===== */
+  .hero{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);
+    padding:36px 36px 32px 36px;
+    margin-bottom:28px;
+  }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em;
+    color:var(--accent); font-weight:500; margin-bottom:10px;
+    display:flex; align-items:center; gap:7px;
+  }
+  .eyebrow::before{ content:''; width:14px; height:1.5px; background:var(--accent); display:inline-block; }
+  .hero h1{
+    font-family:var(--font-display); font-weight:700; font-size:34px; letter-spacing:-0.02em;
+    margin-bottom:8px;
+  }
+  .hero p.lede{ color:var(--text-secondary); font-size:14.5px; max-width:480px; margin-bottom:26px; }
+
+  .shorten-form{ display:flex; flex-direction:column; gap:12px; }
+  .input-row{ display:flex; gap:10px; }
+  .input-row input[type="url"], .input-row input[type="text"]{
+    flex:1;
+    background:var(--surface-alt);
+    border:1.5px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:13px 16px;
+    font-size:14px;
+    font-family:var(--font-body);
+    color:var(--text-primary);
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .input-row input:focus{ outline:none; border-color:var(--accent); background:var(--surface); }
+  .input-row input::placeholder{ color:var(--text-tertiary); }
+  .shorten-btn{
+    background:var(--accent); color:var(--accent-text-on); border:none;
+    border-radius:var(--radius-sm); padding:0 24px; font-weight:600; font-size:14px;
+    display:flex; align-items:center; gap:8px; flex-shrink:0;
+    transition:background 0.15s ease, transform 0.1s ease;
+  }
+  .shorten-btn:hover{ background:var(--accent-strong); }
+  .shorten-btn:active{ transform:scale(0.98); }
+  .shorten-btn svg{ width:15px; height:15px; }
+  .field-error{ font-size:12px; color:var(--danger); display:none; }
+  .field-error.show{ display:block; }
+
+  .options-toggle{
+    background:none; border:none; color:var(--text-tertiary); font-size:12.5px; font-weight:500;
+    display:flex; align-items:center; gap:6px; align-self:flex-start; padding:2px 0;
+  }
+  .options-toggle:hover{ color:var(--text-secondary); }
+  .options-toggle svg{ width:13px; height:13px; transition:transform 0.15s ease; }
+  .options-toggle.open svg{ transform:rotate(180deg); }
+
+  .options-panel{
+    display:none;
+    gap:12px;
+    padding-top:6px;
+  }
+  .options-panel.open{ display:flex; }
+  .option-field{ flex:1; }
+  .option-field label{
+    display:block; font-size:11.5px; color:var(--text-tertiary); margin-bottom:6px;
+    font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.05em;
+  }
+  .option-field input, .option-field select{
+    width:100%;
+    background:var(--surface-alt); border:1.5px solid var(--border); border-radius:var(--radius-sm);
+    padding:10px 12px; font-size:13px; font-family:inherit; color:var(--text-primary);
+  }
+  .option-field input:focus, .option-field select:focus{ outline:none; border-color:var(--accent); }
+
+  /* ===== Result / cut-mark ===== */
+  .result-card{
+    display:none;
+    margin-top:26px;
+    padding-top:26px;
+    border-top:1px dashed var(--border-strong);
+  }
+  .result-card.show{ display:block; animation:fadeUp 0.25s ease; }
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
+
+  .cut-row{ display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .cut-label{
+    font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--text-tertiary); width:64px; flex-shrink:0;
+  }
+  .cut-original{
+    font-family:var(--font-mono); font-size:12.5px; color:var(--text-secondary);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    flex:1;
+  }
+  .cut-divider{
+    display:flex; align-items:center; gap:10px;
+    padding-left:78px;
+    margin-bottom:14px;
+  }
+  .cut-divider .line{ flex:1; height:0; border-top:1px dashed var(--border-strong); }
+  .cut-divider .scissors{ color:var(--text-tertiary); flex-shrink:0; display:flex; }
+  .cut-divider .scissors svg{ width:14px; height:14px; }
+
+  .cut-result{ display:flex; align-items:center; gap:14px; }
+  .short-pill{
+    background:var(--accent-soft); color:var(--accent-strong);
+    font-family:var(--font-mono); font-size:14.5px; font-weight:500;
+    padding:11px 16px; border-radius:var(--radius-sm);
+    flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .icon-btn{
+    width:40px; height:40px; border-radius:var(--radius-sm); border:1.5px solid var(--border);
+    background:var(--surface); color:var(--text-secondary);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn:hover{ background:var(--surface-alt); border-color:var(--border-strong); color:var(--text-primary); }
+  .icon-btn.copied{ background:var(--success-soft); border-color:var(--success); color:var(--success); }
+  .icon-btn svg{ width:16px; height:16px; }
+
+  /* ===== Stats strip ===== */
+  .stats-strip{
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:14px;
+    margin-bottom:28px;
+  }
+  .stat-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px;
+    box-shadow:var(--shadow-sm);
+  }
+  .stat-card .label{
+    font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--text-tertiary); margin-bottom:8px;
+  }
+  .stat-card .value{ font-family:var(--font-display); font-size:24px; font-weight:700; letter-spacing:-0.01em; }
+  .stat-card .value span{ font-size:13px; color:var(--text-tertiary); font-family:var(--font-body); font-weight:500; }
+
+  /* ===== List controls ===== */
+  .list-controls{
+    display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  }
+  .list-title{ font-family:var(--font-display); font-weight:600; font-size:16.5px; margin-right:auto; }
+  .search-box{ position:relative; width:220px; }
+  .search-box svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:var(--text-tertiary); }
+  .search-box input{
+    width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:8px 12px 8px 30px; font-size:12.5px; font-family:inherit; color:var(--text-primary);
+  }
+  .search-box input:focus{ outline:none; border-color:var(--accent); }
+  .pill-select{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:8px 10px; font-size:12.5px; color:var(--text-secondary); font-family:inherit;
+  }
+
+  /* ===== Link list ===== */
+  .link-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+  .link-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);
+    overflow:hidden;
+  }
+  .link-main{
+    display:grid;
+    grid-template-columns:1fr auto auto auto;
+    align-items:center;
+    gap:18px;
+    padding:16px 18px;
+  }
+  .link-info{ min-width:0; }
+  .link-short-row{ display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .link-short{
+    font-family:var(--font-mono); font-size:13.5px; font-weight:500; color:var(--accent-strong);
+  }
+  .status-badge{
+    font-family:var(--font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em;
+    padding:2px 7px; border-radius:20px; font-weight:500;
+  }
+  .status-badge.active{ background:var(--success-soft); color:var(--success); }
+  .status-badge.expired{ background:var(--danger-soft); color:var(--danger); }
+  .link-original{
+    font-size:12.5px; color:var(--text-tertiary);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .link-sparkline{ width:90px; height:32px; flex-shrink:0; }
+  .link-clicks{ text-align:right; flex-shrink:0; }
+  .link-clicks .num{ font-family:var(--font-display); font-size:19px; font-weight:700; }
+  .link-clicks .lbl{ font-family:var(--font-mono); font-size:9.5px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.05em; }
+  .link-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .link-actions .icon-btn{ width:34px; height:34px; }
+  .link-actions .icon-btn svg{ width:14px; height:14px; }
+
+  .link-expand{
+    display:none;
+    border-top:1px solid var(--border);
+    background:var(--surface-alt);
+    padding:18px;
+    gap:22px;
+  }
+  .link-expand.open{ display:flex; }
+  .qr-box{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:12px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    width:104px; height:104px;
+  }
+  .qr-fallback{ font-size:10px; color:var(--text-tertiary); text-align:center; font-family:var(--font-mono); }
+  .expand-meta{ flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; align-content:start; }
+  .expand-item .label{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-tertiary); margin-bottom:3px; }
+  .expand-item .value{ font-size:12.5px; font-weight:500; word-break:break-all; }
+  .expand-actions{ display:flex; gap:8px; grid-column:1 / -1; margin-top:4px; }
+  .mini-btn{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:7px 12px; font-size:12px; font-weight:500; color:var(--text-secondary);
+    display:flex; align-items:center; gap:6px;
+  }
+  .mini-btn:hover{ background:var(--surface-alt); color:var(--text-primary); }
+  .mini-btn svg{ width:12.5px; height:12.5px; }
+  .mini-btn.danger{ color:var(--danger); }
+  .mini-btn.danger:hover{ background:var(--danger-soft); border-color:var(--danger); }
+
+  /* delete confirm inline */
+  .confirm-row{ display:none; align-items:center; gap:8px; }
+  .confirm-row.show{ display:flex; }
+  .confirm-row span{ font-size:12px; color:var(--danger); font-weight:500; }
+  .confirm-row button{
+    font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:6px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text-secondary);
+  }
+  .confirm-row button.yes{ background:var(--danger); border-color:var(--danger); color:#fff; }
+
+  .empty-state{
+    text-align:center; padding:60px 20px; color:var(--text-tertiary);
+  }
+  .empty-state .empty-icon{
+    width:52px; height:52px; border-radius:14px; background:var(--surface); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; margin:0 auto 16px auto;
+  }
+  .empty-state .empty-icon svg{ width:22px; height:22px; color:var(--text-tertiary); }
+  .empty-state strong{ font-family:var(--font-display); color:var(--text-secondary); font-size:15px; }
+  .empty-state p{ font-size:12.5px; margin-top:5px; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--text-primary); color:#fff; padding:10px 18px; border-radius:8px;
+    font-size:12.5px; font-weight:500; opacity:0; pointer-events:none;
+    transition:opacity 0.2s ease, transform 0.2s ease;
+    display:flex; align-items:center; gap:8px;
+    box-shadow:var(--shadow-md);
+    z-index:200;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast svg{ width:14px; height:14px; color:var(--success); }
+
+  @media (max-width:720px){
+    .stats-strip{ grid-template-columns:repeat(2,1fr); }
+    .link-main{ grid-template-columns:1fr; gap:10px; }
+    .link-sparkline{ display:none; }
+    .link-clicks{ text-align:left; }
+    .link-actions{ justify-content:flex-start; }
+    .input-row{ flex-direction:column; }
+    .options-panel{ flex-direction:column; }
+    .expand-meta{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="site-header">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l6-6"/><path d="M13 4h4a3 3 0 013 3v0a3 3 0 01-3 3h-2"/><path d="M11 20H7a3 3 0 01-3-3v0a3 3 0 013-3h2"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">Terse</div>
+      <div class="logo-sub">Say less</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="header-stat" id="headerStat"><strong>0</strong>&nbsp;links created this session</div>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">URL Shortener</div>
+    <h1>Say less.</h1>
+    <p class="lede">Paste a link, get back the short version. Nothing else changes.</p>
+
+    <form class="shorten-form" id="shortenForm">
+      <div class="input-row">
+        <input type="url" id="urlInput" placeholder="https://example.com/a/very/long/path?with=parameters" autocomplete="off">
+        <button type="submit" class="shorten-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l6-6"/><path d="M13 4h4a3 3 0 013 3v0a3 3 0 01-3 3h-2"/><path d="M11 20H7a3 3 0 01-3-3v0a3 3 0 013-3h2"/></svg>
+          Shorten
+        </button>
+      </div>
+      <div class="field-error" id="urlError">That doesn't look like a valid URL. Include https:// and try again.</div>
+
+      <button type="button" class="options-toggle" id="optionsToggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        Customize alias &amp; expiry
+      </button>
+      <div class="options-panel" id="optionsPanel">
+        <div class="option-field">
+          <label for="aliasInput">Custom alias (optional)</label>
+          <input type="text" id="aliasInput" placeholder="e.g. launch-day">
+        </div>
+        <div class="option-field">
+          <label for="expirySelect">Expires</label>
+          <select id="expirySelect">
+            <option value="never">Never</option>
+            <option value="24h">24 hours</option>
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+          </select>
+        </div>
+      </div>
+    </form>
+
+    <div class="result-card" id="resultCard">
+      <div class="cut-row">
+        <div class="cut-label">Original</div>
+        <div class="cut-original" id="resultOriginal">—</div>
+      </div>
+      <div class="cut-divider">
+        <div class="line"></div>
+        <div class="scissors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.5 15.5M20 20L8.5 8.5"/></svg></div>
+        <div class="line"></div>
+      </div>
+      <div class="cut-result">
+        <div class="short-pill" id="resultShort">terse.link/xxxxx</div>
+        <button class="icon-btn" id="resultCopyBtn" title="Copy link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+        <button class="icon-btn" id="resultVisitBtn" title="Open original">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div class="stats-strip">
+    <div class="stat-card">
+      <div class="label">Total links</div>
+      <div class="value" id="statTotal">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total clicks</div>
+      <div class="value" id="statClicks">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Active links</div>
+      <div class="value" id="statActive">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Avg. clicks / link</div>
+      <div class="value" id="statAvg">0</div>
+    </div>
+  </div>
+
+  <div class="list-controls">
+    <div class="list-title">Your links</div>
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="searchInput" placeholder="Search links...">
+    </div>
+    <select class="pill-select" id="statusFilter">
+      <option value="all">All statuses</option>
+      <option value="active">Active</option>
+      <option value="expired">Expired</option>
+    </select>
+    <select class="pill-select" id="sortSelect">
+      <option value="date-desc">Newest first</option>
+      <option value="date-asc">Oldest first</option>
+      <option value="clicks-desc">Most clicks</option>
+      <option value="clicks-asc">Fewest clicks</option>
+    </select>
+  </div>
+
+  <div class="link-list" id="linkList"></div>
+
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l6-6"/><path d="M13 4h4a3 3 0 013 3v0a3 3 0 01-3 3h-2"/><path d="M11 20H7a3 3 0 01-3-3v0a3 3 0 013-3h2"/></svg>
+    </div>
+    <strong id="emptyTitle">No links yet</strong>
+    <p id="emptySub">Shorten your first link above to see it here.</p>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+  <span id="toastText">Copied to clipboard</span>
+</div>
+
+<script>
+(function(){
+
+  const DOMAIN = 'terse.link';
+  let links = [];   // {id, longUrl, code, shortLink, created, expiry, clickTimes:[Date]}
+  let expandedId = null;
+  let confirmingId = null;
+
+  const CHARS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function genCode(len){
+    let s='';
+    for(let i=0;i<len;i++) s += CHARS[Math.floor(Math.random()*CHARS.length)];
+    return s;
+  }
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+
+  function isValidUrl(str){
+    try{
+      const u = new URL(str);
+      return (u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.includes('.');
+    }catch(e){ return false; }
+  }
+
+  function expiryDate(created, choice){
+    if(choice === 'never') return null;
+    const d = new Date(created);
+    if(choice === '24h') d.setHours(d.getHours()+24);
+    if(choice === '7d') d.setDate(d.getDate()+7);
+    if(choice === '30d') d.setDate(d.getDate()+30);
+    return d;
+  }
+  function isExpired(link){
+    return link.expiry && link.expiry.getTime() < Date.now();
+  }
+
+  function fmtDate(d){
+    return d.toLocaleDateString(undefined,{month:'short', day:'numeric'}) + ' · ' + d.toLocaleTimeString(undefined,{hour:'numeric', minute:'2-digit'});
+  }
+  function fmtRelative(d){
+    const s = Math.floor((Date.now()-d.getTime())/1000);
+    if(s<5) return 'just now';
+    if(s<60) return s+'s ago';
+    const m = Math.floor(s/60);
+    if(m<60) return m+'m ago';
+    const h = Math.floor(m/60);
+    if(h<24) return h+'h ago';
+    return Math.floor(h/24)+'d ago';
+  }
+  function truncateMid(str, max){
+    if(str.length<=max) return str;
+    const half = Math.floor((max-3)/2);
+    return str.slice(0,half) + '...' + str.slice(str.length-half);
+  }
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  /* ---------- Toast ---------- */
+  let toastTimer = null;
+  function showToast(text){
+    const t = document.getElementById('toast');
+    document.getElementById('toastText').textContent = text;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> t.classList.remove('show'), 2000);
+  }
+
+  /* ---------- Sparkline ---------- */
+  function sparklineSvg(clickTimes){
+    // bucket clicks into 8 slots across the link's lifetime (or last 8 "events")
+    const w = 90, h = 32, pad = 3;
+    if(clickTimes.length === 0){
+      return `<svg class="link-sparkline" viewBox="0 0 ${w} ${h}"><line x1="${pad}" y1="${h/2}" x2="${w-pad}" y2="${h/2}" stroke="var(--border-strong)" stroke-width="1.5" stroke-dasharray="3 3"/></svg>`;
+    }
+    const n = Math.min(clickTimes.length, 8);
+    const bucketSize = Math.ceil(clickTimes.length / n) || 1;
+    const buckets = [];
+    for(let i=0;i<clickTimes.length;i+=bucketSize){
+      buckets.push(clickTimes.slice(i,i+bucketSize).length);
+    }
+    while(buckets.length<2) buckets.push(buckets[0]||0);
+    const max = Math.max(...buckets, 1);
+    const stepX = (w - pad*2) / (buckets.length-1);
+    const pts = buckets.map((v,i)=>{
+      const x = pad + i*stepX;
+      const y = h - pad - (v/max)*(h-pad*2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const last = pts[pts.length-1].split(',');
+    return `<svg class="link-sparkline" viewBox="0 0 ${w} ${h}">
+      <polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="var(--accent)"/>
+    </svg>`;
+  }
+
+  /* ---------- Shorten form ---------- */
+  const optionsToggle = document.getElementById('optionsToggle');
+  const optionsPanel = document.getElementById('optionsPanel');
+  optionsToggle.addEventListener('click', ()=>{
+    optionsToggle.classList.toggle('open');
+    optionsPanel.classList.toggle('open');
+  });
+
+  document.getElementById('shortenForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const input = document.getElementById('urlInput');
+    const err = document.getElementById('urlError');
+    let val = input.value.trim();
+    if(val && !/^https?:\/\//i.test(val)) val = 'https://' + val;
+
+    if(!isValidUrl(val)){
+      err.classList.add('show');
+      input.focus();
+      return;
+    }
+    err.classList.remove('show');
+
+    const aliasRaw = document.getElementById('aliasInput').value.trim();
+    const alias = aliasRaw.replace(/[^a-zA-Z0-9-_]/g,'');
+    const expiryChoice = document.getElementById('expirySelect').value;
+
+    if(alias && links.some(l=>l.code === alias)){
+      err.textContent = 'That alias is already taken — try another.';
+      err.classList.add('show');
+      return;
+    }
+    err.textContent = "That doesn't look like a valid URL. Include https:// and try again.";
+
+    const created = new Date();
+    const code = alias || genCode(6);
+    const record = {
+      id: uid(),
+      longUrl: val,
+      code,
+      shortLink: `${DOMAIN}/${code}`,
+      created,
+      expiry: expiryDate(created, expiryChoice),
+      clickTimes: []
+    };
+    links.unshift(record);
+
+    // show result strip
+    document.getElementById('resultOriginal').textContent = truncateMid(val, 70);
+    document.getElementById('resultOriginal').title = val;
+    document.getElementById('resultShort').textContent = record.shortLink;
+    document.getElementById('resultCard').classList.add('show');
+    document.getElementById('resultCard').dataset.id = record.id;
+
+    input.value = '';
+    document.getElementById('aliasInput').value = '';
+    document.getElementById('expirySelect').value = 'never';
+    optionsPanel.classList.remove('open');
+    optionsToggle.classList.remove('open');
+
+    render();
+  });
+
+  document.getElementById('resultCopyBtn').addEventListener('click', function(){
+    const link = document.getElementById('resultShort').textContent;
+    copyText('https://' + link, this);
+  });
+  document.getElementById('resultVisitBtn').addEventListener('click', function(){
+    const id = document.getElementById('resultCard').dataset.id;
+    visitLink(id);
+  });
+
+  function copyText(text, btnEl){
+    navigator.clipboard && navigator.clipboard.writeText(text).catch(()=>{});
+    if(btnEl){
+      btnEl.classList.add('copied');
+      setTimeout(()=>btnEl.classList.remove('copied'), 1300);
+    }
+    showToast('Copied to clipboard');
+  }
+
+  function visitLink(id){
+    const link = links.find(l=>l.id===id);
+    if(!link) return;
+    link.clickTimes.push(new Date());
+    window.open(link.longUrl, '_blank', 'noopener');
+    render();
+  }
+
+  /* ---------- List rendering ---------- */
+  let searchTerm = '';
+  let statusFilter = 'all';
+  let sortMode = 'date-desc';
+
+  document.getElementById('searchInput').addEventListener('input', e=>{
+    searchTerm = e.target.value.trim().toLowerCase();
+    render();
+  });
+  document.getElementById('statusFilter').addEventListener('change', e=>{
+    statusFilter = e.target.value;
+    render();
+  });
+  document.getElementById('sortSelect').addEventListener('change', e=>{
+    sortMode = e.target.value;
+    render();
+  });
+
+  function getFiltered(){
+    let list = links.slice();
+    if(statusFilter !== 'all'){
+      list = list.filter(l => statusFilter==='expired' ? isExpired(l) : !isExpired(l));
+    }
+    if(searchTerm){
+      list = list.filter(l => l.longUrl.toLowerCase().includes(searchTerm) || l.code.toLowerCase().includes(searchTerm));
+    }
+    switch(sortMode){
+      case 'date-desc': list.sort((a,b)=>b.created-a.created); break;
+      case 'date-asc': list.sort((a,b)=>a.created-b.created); break;
+      case 'clicks-desc': list.sort((a,b)=>b.clickTimes.length-a.clickTimes.length); break;
+      case 'clicks-asc': list.sort((a,b)=>a.clickTimes.length-b.clickTimes.length); break;
+    }
+    return list;
+  }
+
+  function render(){
+    const list = getFiltered();
+    const listEl = document.getElementById('linkList');
+    const empty = document.getElementById('emptyState');
+
+    empty.style.display = list.length===0 ? 'block' : 'none';
+    listEl.style.display = list.length===0 ? 'none' : 'flex';
+    if(list.length===0){
+      document.getElementById('emptyTitle').textContent = searchTerm || statusFilter!=='all' ? 'No matches' : 'No links yet';
+      document.getElementById('emptySub').textContent = searchTerm || statusFilter!=='all' ? 'Try a different search or filter.' : 'Shorten your first link above to see it here.';
+    }
+
+    listEl.innerHTML = list.map(l=>{
+      const expired = isExpired(l);
+      const isOpen = expandedId === l.id;
+      const isConfirming = confirmingId === l.id;
+      return `
+      <div class="link-card" data-id="${l.id}">
+        <div class="link-main">
+          <div class="link-info">
+            <div class="link-short-row">
+              <span class="link-short">${l.shortLink}</span>
+              <span class="status-badge ${expired?'expired':'active'}">${expired?'Expired':'Active'}</span>
+            </div>
+            <div class="link-original" title="${escapeHtml(l.longUrl)}">${escapeHtml(truncateMid(l.longUrl,60))}</div>
+          </div>
+          ${sparklineSvg(l.clickTimes)}
+          <div class="link-clicks">
+            <div class="num">${l.clickTimes.length}</div>
+            <div class="lbl">Clicks</div>
+          </div>
+          <div class="link-actions">
+            <button class="icon-btn" data-action="copy" data-id="${l.id}" title="Copy link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+            <button class="icon-btn" data-action="visit" data-id="${l.id}" title="Open original">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+            </button>
+            <button class="icon-btn" data-action="expand" data-id="${l.id}" title="Details &amp; QR code">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="link-expand ${isOpen?'open':''}">
+          <div class="qr-box" id="qr-${l.id}"><div class="qr-fallback">QR</div></div>
+          <div class="expand-meta">
+            <div class="expand-item"><div class="label">Full destination</div><div class="value">${escapeHtml(l.longUrl)}</div></div>
+            <div class="expand-item"><div class="label">Created</div><div class="value">${fmtDate(l.created)} (${fmtRelative(l.created)})</div></div>
+            <div class="expand-item"><div class="label">Expires</div><div class="value">${l.expiry ? fmtDate(l.expiry) : 'Never'}</div></div>
+            <div class="expand-item"><div class="label">Short code</div><div class="value">${escapeHtml(l.code)}</div></div>
+            <div class="expand-actions">
+              <button class="mini-btn" data-action="download-qr" data-id="${l.id}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0l-4.5-4.5M12 16l4.5-4.5"/><path d="M4 19h16"/></svg>
+                Save QR
+              </button>
+              <button class="mini-btn" data-action="delete" data-id="${l.id}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                Delete
+              </button>
+              <div class="confirm-row ${isConfirming?'show':''}" data-id="${l.id}">
+                <span>Delete this link?</span>
+                <button class="yes" data-action="confirm-delete" data-id="${l.id}">Yes, delete</button>
+                <button data-action="cancel-delete" data-id="${l.id}">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // render QR codes for open card
+    list.forEach(l=>{
+      if(expandedId === l.id){
+        const box = document.getElementById('qr-'+l.id);
+        if(box){
+          box.innerHTML = '';
+          try{
+            if(typeof QRCode !== 'undefined'){
+              new QRCode(box, { text: 'https://'+l.shortLink, width: 80, height: 80, colorDark:'#171B24', colorLight:'#ffffff' });
+            } else {
+              box.innerHTML = '<div class="qr-fallback">QR unavailable</div>';
+            }
+          }catch(e){
+            box.innerHTML = '<div class="qr-fallback">QR unavailable</div>';
+          }
+        }
+      }
+    });
+
+    wireRowActions();
+    updateStats();
+  }
+
+  function wireRowActions(){
+    document.querySelectorAll('[data-action]').forEach(btn=>{
+      btn.onclick = (e)=>{
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-id');
+        if(action==='copy'){
+          const l = links.find(x=>x.id===id);
+          if(l) copyText('https://'+l.shortLink, btn);
+        } else if(action==='visit'){
+          visitLink(id);
+        } else if(action==='expand'){
+          expandedId = expandedId===id ? null : id;
+          confirmingId = null;
+          render();
+        } else if(action==='delete'){
+          confirmingId = id;
+          render();
+        } else if(action==='cancel-delete'){
+          confirmingId = null;
+          render();
+        } else if(action==='confirm-delete'){
+          links = links.filter(x=>x.id!==id);
+          confirmingId = null;
+          if(expandedId===id) expandedId = null;
+          render();
+          showToast('Link deleted');
+        } else if(action==='download-qr'){
+          const box = document.getElementById('qr-'+id);
+          const img = box ? box.querySelector('img') : null;
+          const canvas = box ? box.querySelector('canvas') : null;
+          const src = img ? img.src : (canvas ? canvas.toDataURL('image/png') : null);
+          if(src){
+            const a = document.createElement('a');
+            a.href = src;
+            a.download = `terse-${id}.png`;
+            document.body.appendChild(a); a.click(); a.remove();
+          } else {
+            showToast('QR not ready yet');
+          }
+        }
+      };
+    });
+  }
+
+  function updateStats(){
+    const total = links.length;
+    const totalClicks = links.reduce((s,l)=>s+l.clickTimes.length,0);
+    const active = links.filter(l=>!isExpired(l)).length;
+    const avg = total ? (totalClicks/total).toFixed(1) : '0';
+    document.getElementById('statTotal').innerHTML = total;
+    document.getElementById('statClicks').innerHTML = totalClicks;
+    document.getElementById('statActive').innerHTML = `${active}<span> / ${total}</span>`;
+    document.getElementById('statAvg').innerHTML = avg;
+    document.getElementById('headerStat').innerHTML = `<strong>${total}</strong>&nbsp;link${total!==1?'s':''} created this session`;
+  }
+
+  render();
+  setInterval(render, 20000); // keep relative timestamps + expiry states fresh
+
+})();
+</script>
+</body>
+</html>

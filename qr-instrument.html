@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Instrument — Generate &amp; Scan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<style>
+  :root{
+    --bg:#1e2023;
+    --panel:#26282c;
+    --panel-raised:#302f34;
+    --line:#414449;
+    --line-soft:#34373c;
+    --amber:#d98e3f;
+    --amber-soft:rgba(217,142,63,0.14);
+    --amber-dim:#8a6438;
+    --text:#ececea;
+    --muted:#8f939a;
+    --success:#5c9d72;
+    --danger:#c0574a;
+    --paper:#f7f5f1;
+    --radius:3px;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  body{
+    font-family:'Inter', sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  ::selection{ background:var(--amber); color:#1e2023; }
+
+  .shell{
+    max-width:960px;
+    margin:0 auto;
+    padding:40px 28px 70px;
+  }
+
+  header.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:34px;
+  }
+  header.top .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  header.top .brand .dial{
+    width:30px; height:30px;
+    border-radius:50%;
+    border:2px solid var(--amber);
+    position:relative;
+  }
+  header.top .brand .dial::after{
+    content:"";
+    position:absolute;
+    top:50%; left:50%;
+    width:8px; height:2px;
+    background:var(--amber);
+    transform:translate(-50%,-50%) rotate(35deg);
+  }
+  header.top .brand .name{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:19px;
+    letter-spacing:-0.01em;
+  }
+  header.top .brand .name em{
+    color:var(--amber);
+    font-style:normal;
+  }
+  header.top .readout{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:0.04em;
+  }
+
+  /* ===== MODE SWITCH ===== */
+  .mode-switch{
+    display:flex;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:4px;
+    margin-bottom:30px;
+    width:fit-content;
+  }
+  .mode-switch button{
+    padding:9px 22px;
+    background:none;
+    border:none;
+    border-radius:4px;
+    color:var(--muted);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    letter-spacing:0.02em;
+  }
+  .mode-switch button.active{
+    background:var(--amber);
+    color:#1e1a14;
+  }
+
+  .panel{
+    display:none;
+  }
+  .panel.active{ display:block; }
+
+  /* ===== GENERATE MODE ===== */
+  .gen-grid{
+    display:grid;
+    grid-template-columns:1fr 380px;
+    gap:32px;
+  }
+
+  .controls{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:26px;
+  }
+  .field{ margin-bottom:18px; }
+  .field label{
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.09em;
+    color:var(--muted);
+    margin-bottom:8px;
+  }
+  .field textarea, .field select, .field input[type="text"]{
+    width:100%;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:var(--radius);
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+    outline:none;
+    resize:vertical;
+  }
+  .field textarea{ min-height:90px; }
+  .field textarea:focus, .field select:focus, .field input:focus{ border-color:var(--amber); }
+
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+  .slider-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .slider-row input[type="range"]{
+    flex:1;
+    accent-color:var(--amber);
+  }
+  .slider-row .sval{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:var(--amber);
+    width:52px;
+    text-align:right;
+  }
+
+  .color-row{
+    display:flex;
+    gap:14px;
+  }
+  .color-field{
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:8px 12px;
+  }
+  .color-field input[type="color"]{
+    width:28px; height:28px;
+    border:none;
+    background:none;
+    padding:0;
+    cursor:pointer;
+  }
+  .color-field span{ font-size:12px; color:var(--muted); }
+
+  .download-btn{
+    width:100%;
+    margin-top:6px;
+    padding:12px 0;
+    background:var(--amber);
+    border:none;
+    border-radius:var(--radius);
+    color:#1e1a14;
+    font-weight:700;
+    font-size:13.5px;
+    letter-spacing:0.02em;
+    cursor:pointer;
+  }
+  .download-btn:hover{ filter:brightness(1.08); }
+  .download-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  /* signature: viewfinder frame */
+  .viewfinder{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:36px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:380px;
+  }
+  .vf-corner{
+    position:absolute;
+    width:26px; height:26px;
+    border-color:var(--amber);
+    border-style:solid;
+    border-width:0;
+  }
+  .vf-corner.tl{ top:14px; left:14px; border-top-width:3px; border-left-width:3px; }
+  .vf-corner.tr{ top:14px; right:14px; border-top-width:3px; border-right-width:3px; }
+  .vf-corner.bl{ bottom:14px; left:14px; border-bottom-width:3px; border-left-width:3px; }
+  .vf-corner.br{ bottom:14px; right:14px; border-bottom-width:3px; border-right-width:3px; }
+
+  #qrOutput{
+    background:var(--paper);
+    padding:16px;
+    border-radius:4px;
+    line-height:0;
+  }
+  #qrOutput img, #qrOutput canvas{
+    display:block;
+    max-width:100%;
+    height:auto !important;
+    width:100% !important;
+  }
+
+  .vf-caption{
+    position:absolute;
+    bottom:14px;
+    left:50%;
+    transform:translateX(-50%);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--amber-dim);
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+  }
+
+  /* ===== SCAN MODE ===== */
+  .scan-grid{
+    display:grid;
+    grid-template-columns:1fr 340px;
+    gap:32px;
+  }
+
+  .scanner-frame{
+    position:relative;
+    background:#000;
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+    aspect-ratio:4/3;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #scanVideo{
+    width:100%; height:100%;
+    object-fit:cover;
+    display:none;
+  }
+  .scan-placeholder{
+    text-align:center;
+    padding:30px;
+    color:var(--muted);
+    font-size:13px;
+    max-width:280px;
+  }
+  .scan-placeholder strong{
+    display:block;
+    font-family:'Space Grotesk', sans-serif;
+    color:var(--text);
+    font-size:16px;
+    margin-bottom:8px;
+    font-weight:600;
+  }
+
+  .scan-side{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .scan-btn{
+    padding:12px 0;
+    border-radius:var(--radius);
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--text);
+  }
+  .scan-btn.primary{
+    background:var(--amber);
+    border-color:var(--amber);
+    color:#1e1a14;
+  }
+  .scan-btn:hover{ border-color:var(--amber); }
+  .scan-btn.primary:hover{ filter:brightness(1.08); }
+
+  .file-input-wrap{
+    position:relative;
+  }
+  .file-input-wrap input[type="file"]{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    cursor:pointer;
+  }
+
+  .readout-box{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:18px;
+  }
+  .readout-box .rb-label{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:0.09em;
+    color:var(--muted);
+    margin-bottom:10px;
+  }
+  .readout-box .rb-value{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    word-break:break-all;
+    color:var(--amber);
+    margin-bottom:12px;
+    min-height:20px;
+  }
+  .readout-box .rb-actions{
+    display:flex;
+    gap:8px;
+  }
+  .readout-box .rb-actions button{
+    flex:1;
+    padding:8px 0;
+    font-size:12px;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    background:var(--panel-raised);
+    color:var(--text);
+    cursor:pointer;
+  }
+  .readout-box .rb-actions button:hover{ border-color:var(--amber); color:var(--amber); }
+
+  .history{
+    margin-top:22px;
+  }
+  .history .h-title{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.09em;
+    color:var(--muted);
+    margin-bottom:10px;
+  }
+  .history-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .history-item{
+    background:var(--panel);
+    border:1px solid var(--line-soft);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+  .history-item .hi-text{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--text);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .history-item .hi-time{
+    font-size:10.5px;
+    color:var(--muted);
+    flex-shrink:0;
+  }
+  .history-empty{
+    font-size:12.5px;
+    color:var(--muted);
+    padding:8px 0;
+  }
+
+  .status-line{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    margin-top:4px;
+  }
+  .status-line.ok{ color:var(--success); }
+  .status-line.err{ color:var(--danger); }
+
+  @media (max-width: 820px){
+    .gen-grid, .scan-grid{ grid-template-columns:1fr; }
+    .viewfinder{ order:-1; }
+  }
+
+  :focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header class="top">
+    <div class="brand">
+      <div class="dial"></div>
+      <div class="name">QR <em>Instrument</em></div>
+    </div>
+    <div class="readout" id="clockReadout">READY</div>
+  </header>
+
+  <div class="mode-switch" id="modeSwitch">
+    <button type="button" data-mode="generate" class="active">Generate</button>
+    <button type="button" data-mode="scan">Scan</button>
+  </div>
+
+  <!-- ===== GENERATE ===== -->
+  <div class="panel active" id="panel-generate">
+    <div class="gen-grid">
+      <div class="controls">
+        <div class="field">
+          <label for="qrText">Content</label>
+          <textarea id="qrText" placeholder="Enter a URL, text, Wi-Fi details, or anything else…">https://claude.ai</textarea>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="ecLevel">Error correction</label>
+            <select id="ecLevel">
+              <option value="L">Low (7%)</option>
+              <option value="M" selected>Medium (15%)</option>
+              <option value="Q">Quartile (25%)</option>
+              <option value="H">High (30%)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sizeSlider">Size</label>
+            <div class="slider-row">
+              <input type="range" id="sizeSlider" min="120" max="480" step="20" value="280">
+              <span class="sval" id="sizeVal">280px</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Colors</label>
+          <div class="color-row">
+            <div class="color-field">
+              <input type="color" id="colorDark" value="#1e2023">
+              <span>Code</span>
+            </div>
+            <div class="color-field">
+              <input type="color" id="colorLight" value="#f7f5f1">
+              <span>Background</span>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="download-btn" id="downloadQr">Download PNG</button>
+      </div>
+
+      <div class="viewfinder">
+        <div class="vf-corner tl"></div>
+        <div class="vf-corner tr"></div>
+        <div class="vf-corner bl"></div>
+        <div class="vf-corner br"></div>
+        <div id="qrOutput"></div>
+        <div class="vf-caption">Live preview</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SCAN ===== -->
+  <div class="panel" id="panel-scan">
+    <div class="scan-grid">
+      <div class="viewfinder scanner-frame" style="padding:0;">
+        <div class="vf-corner tl"></div>
+        <div class="vf-corner tr"></div>
+        <div class="vf-corner bl"></div>
+        <div class="vf-corner br"></div>
+        <video id="scanVideo" playsinline muted></video>
+        <div class="scan-placeholder" id="scanPlaceholder">
+          <strong>Camera is off</strong>
+          Start the camera to scan a code live, or upload an image instead.
+        </div>
+      </div>
+
+      <div class="scan-side">
+        <button type="button" class="scan-btn primary" id="startCamBtn">Start camera</button>
+        <button type="button" class="scan-btn" id="stopCamBtn" style="display:none;">Stop camera</button>
+
+        <div class="file-input-wrap">
+          <button type="button" class="scan-btn">Upload image to scan</button>
+          <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="status-line" id="scanStatus"></div>
+
+        <div class="readout-box">
+          <div class="rb-label">Decoded result</div>
+          <div class="rb-value" id="resultValue">—</div>
+          <div class="rb-actions">
+            <button type="button" id="copyResultBtn">Copy</button>
+            <button type="button" id="openResultBtn">Open link</button>
+          </div>
+        </div>
+
+        <div class="history">
+          <div class="h-title">Scan history</div>
+          <div class="history-list" id="historyList">
+            <div class="history-empty">Nothing scanned yet this session.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+<script>
+  const el = id => document.getElementById(id);
+  let scanHistory = [];
+  let currentStream = null;
+  let scanLoopId = null;
+
+  // ===== MODE SWITCH =====
+  el('modeSwitch').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      el('modeSwitch').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.dataset.mode;
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      el('panel-' + mode).classList.add('active');
+      if(mode !== 'scan') stopCamera();
+    });
+  });
+
+  // ===== GENERATE MODE =====
+  let qrInstance = null;
+  const qrOutput = el('qrOutput');
+
+  function correctLevel(code){
+    return { L: QRCode.CorrectLevel.L, M: QRCode.CorrectLevel.M, Q: QRCode.CorrectLevel.Q, H: QRCode.CorrectLevel.H }[code];
+  }
+
+  function renderQr(){
+    const text = el('qrText').value.trim() || ' ';
+    const size = parseInt(el('sizeSlider').value, 10);
+    const dark = el('colorDark').value;
+    const light = el('colorLight').value;
+    const ec = el('ecLevel').value;
+
+    qrOutput.innerHTML = '';
+    qrInstance = new QRCode(qrOutput, {
+      text: text,
+      width: size,
+      height: size,
+      colorDark: dark,
+      colorLight: light,
+      correctLevel: correctLevel(ec)
+    });
+  }
+
+  let debounceTimer = null;
+  function debouncedRender(){
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(renderQr, 150);
+  }
+
+  el('qrText').addEventListener('input', debouncedRender);
+  el('ecLevel').addEventListener('change', renderQr);
+  el('colorDark').addEventListener('input', debouncedRender);
+  el('colorLight').addEventListener('input', debouncedRender);
+  el('sizeSlider').addEventListener('input', () => {
+    el('sizeVal').textContent = el('sizeSlider').value + 'px';
+    debouncedRender();
+  });
+
+  el('downloadQr').addEventListener('click', () => {
+    const canvas = qrOutput.querySelector('canvas');
+    if(!canvas) return;
+    const link = document.createElement('a');
+    link.download = 'qr-code.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  renderQr();
+
+  // ===== SCAN MODE =====
+  const video = el('scanVideo');
+  const placeholder = el('scanPlaceholder');
+  const hiddenCanvas = el('hiddenCanvas');
+  const ctx = hiddenCanvas.getContext('2d', { willReadFrequently: true });
+
+  function setStatus(msg, type){
+    const s = el('scanStatus');
+    s.textContent = msg;
+    s.className = 'status-line ' + (type || '');
+  }
+
+  el('startCamBtn').addEventListener('click', startCamera);
+  el('stopCamBtn').addEventListener('click', stopCamera);
+
+  async function startCamera(){
+    try{
+      currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = currentStream;
+      video.style.display = 'block';
+      placeholder.style.display = 'none';
+      video.play();
+      el('startCamBtn').style.display = 'none';
+      el('stopCamBtn').style.display = 'block';
+      setStatus('Camera active — point at a code.', 'ok');
+      scanLoopId = requestAnimationFrame(scanFrame);
+    } catch(err){
+      setStatus('Camera unavailable — check permissions, or upload an image instead.', 'err');
+    }
+  }
+
+  function stopCamera(){
+    if(currentStream){
+      currentStream.getTracks().forEach(t => t.stop());
+      currentStream = null;
+    }
+    if(scanLoopId) cancelAnimationFrame(scanLoopId);
+    video.style.display = 'none';
+    placeholder.style.display = 'block';
+    el('startCamBtn').style.display = 'block';
+    el('stopCamBtn').style.display = 'none';
+    setStatus('');
+  }
+
+  function scanFrame(){
+    if(video.readyState === video.HAVE_ENOUGH_DATA){
+      hiddenCanvas.width = video.videoWidth;
+      hiddenCanvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+      const imageData = ctx.getImageData(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if(code && code.data){
+        handleDecoded(code.data);
+        setStatus('Code captured.', 'ok');
+      }
+    }
+    scanLoopId = requestAnimationFrame(scanFrame);
+  }
+
+  el('fileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        hiddenCanvas.width = img.width;
+        hiddenCanvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if(code && code.data){
+          handleDecoded(code.data);
+          setStatus('Code found in uploaded image.', 'ok');
+        } else {
+          setStatus('No code found in that image — try a clearer photo.', 'err');
+        }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  function handleDecoded(text){
+    el('resultValue').textContent = text;
+    const isUrl = /^https?:\/\//i.test(text);
+    el('openResultBtn').style.display = isUrl ? 'block' : 'none';
+
+    scanHistory.unshift({ text, time: new Date().toLocaleTimeString() });
+    scanHistory = scanHistory.slice(0, 12);
+    renderHistory();
+  }
+
+  function renderHistory(){
+    const list = el('historyList');
+    if(scanHistory.length === 0){
+      list.innerHTML = '<div class="history-empty">Nothing scanned yet this session.</div>';
+      return;
+    }
+    list.innerHTML = scanHistory.map(h => `
+      <div class="history-item">
+        <span class="hi-text">${escapeHtml(h.text)}</span>
+        <span class="hi-time">${h.time}</span>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  el('copyResultBtn').addEventListener('click', () => {
+    const text = el('resultValue').textContent;
+    if(!text || text === '—') return;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = el('copyResultBtn');
+      const original = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => btn.textContent = original, 1200);
+    });
+  });
+
+  el('openResultBtn').addEventListener('click', () => {
+    const text = el('resultValue').textContent;
+    if(/^https?:\/\//i.test(text)) window.open(text, '_blank');
+  });
+  el('openResultBtn').style.display = 'none';
+
+  // small live clock in the header for instrument feel
+  function tick(){
+    const d = new Date();
+    el('clockReadout').textContent = d.toLocaleTimeString(undefined, { hour12:false });
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>
